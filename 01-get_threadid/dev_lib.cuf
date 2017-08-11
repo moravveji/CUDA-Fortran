@@ -1,0 +1,22 @@
+
+module dev_lib
+   
+  implicit none
+
+  public
+
+  contains
+
+  attributes (global) &
+  
+  subroutine get_id(a)
+    integer, device :: a(*)
+    integer, device :: i
+
+    i = threadIdx% x
+    a(i) = i
+    
+    return 
+  end subroutine get_id
+
+end module dev_lib

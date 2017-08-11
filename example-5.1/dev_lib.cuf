@@ -1,0 +1,49 @@
+
+module dev_lib
+
+  use cudafor
+  
+  implicit none
+  
+  contains 
+  
+  attributes(global) subroutine mul2d(n, m, l, a, b, c)
+    integer, intent(in), value :: n, m, l
+    real, intent(in) :: a(n, m), b(m, l)
+    real, intent(inout) :: c(n, l)
+    
+    integer :: i, j, k, w, z, tx, ty
+    integer, parameter :: jump = 16
+    real, shared, dimension(jump, jump) :: a_temp, b_temp
+    real :: c_ij
+    
+    ! Get the thread x and y indexes within the block
+    tx = threadidx% x
+    ty = threadidx% y
+    
+    ! Get the thread indexes within the entire pool/grid of threads
+    i  = 16 * (blockidx% x - 1) + tx
+    j  = 16 * (blockidx% y - 1) + ty
+    
+    c_ij = 0.0
+    do z = 1, m, jump
+       ! Fill up the temporary arrays 
+       a_temp(tx, ty) = a(i, z+ty-1)
+       b_temp(tx, ty) = b(z+tx-1, j)
+       
+       ! sync all threads to fill up the temporary arrays
+       call syncthreads()
+       
+       do w = 1, jump
+          c_ij = c_ij + a_temp(tx, w) * b_temp(w, ty)
+!          c_ij = c(i, j) + a_temp(tx, w) * b_temp(w, ty)
+       enddo
+       c(i, j) = c_ij
+       
+       ! sync all threads again, to ensure all threads in this block are done before proceeding
+       call syncthreads()       
+    enddo
+    
+  end subroutine mul2d
+
+end module dev_lib

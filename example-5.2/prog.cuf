@@ -1,0 +1,54 @@
+
+program prog
+  
+  use dev_lib
+  use cudafor
+  use, intrinsic :: iso_c_binding
+  
+  implicit none
+  
+  integer, parameter :: n = 100, sz = n * n
+  
+  type(c_ptr) :: a       ! C-type pointer on host
+  type(c_devptr) :: a_d  ! C-type pointer on device
+  real, dimension(:,:), pointer :: fa               ! host pointer
+  real, dimension(:,:), allocatable, device :: fa_d ! device pointer
+  type(dim3) :: blocks, threads
+  
+  integer :: istat, i, j
+  
+  ! tell the host & device to use mapped memory
+  istat = cudaSetDeviceFlags(cudaDeviceMapHost) 
+  
+  ! allocate pinned memory on the host on a pointer
+  istat = cudaHostAlloc(a, sz * sizeof(1.0), cudaHostAllocMapped)
+  
+  ! now, move the c_ptr pointer to the fortran host pointer
+  call c_f_pointer(a, fa, (/ n, n /))
+  
+  ! update the data of the host pointer with some nonsence data
+  call random_number(fa)
+  
+  ! get a device array to the same host pointer array
+  istat = cudaHostGetDevicePointer(a_d, a, 0)
+  
+  ! copy the c_devptr device pointer to a device fortran array
+  call c_f_pointer(a_d, fa_d, (/ n, n /))
+  
+  ! specify the kernel launching specs
+  blocks = dim3(n, n, 1)
+  threads = dim3(n, n, 1)
+  
+  ! launch the kernel, and store the result in the fortran device pointer
+  call increment_matrix <<<blocks, threads>>>(fa_d, n)
+  
+  ! sync the device and host immediately
+  istat = cudaDeviceSynchronize()
+  
+  ! can you modify the pointer value on the device?
+ ! print a(1, 1), a_d(1, 1), fa(1, 1), fa_d(1, 1)
+  
+  ! deallocate the host pointer
+  istat = cudaFreeHost(a)
+  
+end program prog

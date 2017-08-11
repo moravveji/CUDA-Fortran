@@ -1,0 +1,170 @@
+
+module host_lib
+ 
+  use cublas
+  use dev_lib
+  
+  implicit none
+
+  integer, parameter :: n_iter = 10
+  
+  contains
+  
+  !==================================================================
+  subroutine do_mul_gpu(a, b, c)
+    real, intent(in), dimension(:,:) :: a, b
+    real, intent(out), dimension(:,:) :: c
+
+    real, device, allocatable, dimension(:,:) :: d_a, d_b, d_c
+    integer :: n, m, l
+    integer, parameter :: slice = 16
+    type(dim3) :: grid, block
+   
+    real, start, end
+    integer :: try, istat
+    
+    ! get the sizes of the input arrays
+    n = size(a, 1)
+    m = size(a, 2)
+    l = size(b, 2)
+    
+    ! set up the grid and block sizes
+    grid  = dim3(n/slice, slice, 1)
+    block = dim3(slice, slice, 1)
+    
+    ! allocate the device arrays
+    allocate(d_a(n, m), d_b(m, l), d_c(n, l))
+    
+    ! data transfer h2d
+    c   = 0.0
+    d_a = a
+    d_b = b
+    d_c = c
+
+    call cpu_time(start)    
+
+    do try = 1, n_iter
+      ! launch the kernel, and wait till all threads have finished
+      call mul2d<<<grid, block>>> (n, m, l, d_a, d_b, d_c)
+      istat = cudaDeviceSynchronize()
+    enddo
+
+    call cpu_time(end)
+    write(*, '(a28, f8.4)') ' do_mul_gpu: dt (sec) = ', (end - start) / n_iter
+
+    ! fetch the result
+    c = d_c
+    
+    ! deallocate the device arrays
+    deallocate(d_a, d_b, d_c)
+    
+  end subroutine do_mul_gpu
+  
+  !==================================================================
+  subroutine do_blas(a, b, c)
+    real, intent(in), dimension(:,:) :: a, b
+    real, intent(out), dimension(:,:) :: c
+ 
+    integer :: try, n, m, k
+    real :: start, end
+
+    ! get the input matrix sizes
+    m = size(a, 1)
+    n = size(b, 2)
+    k = size(a, 2)
+    
+    call openblas_set_num_threads(1)
+    call cpu_time(start)
+    do try = 1, n_iter
+       call sgemm('n','n',m,n,k,1.0,a,m,b,k,0.0,c,m)
+    enddo
+    call cpu_time(end)
+    write(*, '(a28, f8.4)') 'do_blas: dt (sec) = ', (end - start) / n_iter
+
+  end subroutine do_blas
+ 
+  !==================================================================
+  subroutine do_cublas(a, b, c)
+    real, intent(in), dimension(:,:) :: a, b
+    real, intent(out), dimension(:,:) :: c
+
+    real, allocatable, dimension(:,:), device :: d_a, d_b, d_c    
+    integer :: try, m, n, k
+    real :: start, end
+    type(cublasHandle) :: handle
+    integer :: istat, version
+    
+!    call cublasGetVersion(handle, version)
+  
+    ! get the input matrix sizes
+    m = size(a, 1)
+    n = size(b, 2)
+    k = size(a, 2)
+    
+    ! allocate device matrixes
+    allocate(d_a(m, k), d_b(k, n), d_c(m, n))
+    
+    ! h2d data transfer
+    d_a = a
+    d_b = b
+    d_c = 0.0
+    
+    call cpu_time(start)
+    do try = 1, n_iter
+       !istat = cublasSgemm(handle, 'n','n',m,n,k,1.0,a,m,b,k,0.0,c,m)
+       call sgemm('n','n',m,n,k,1.0,d_a,m,d_b,k,0.0,d_c,m)
+       istat = cudaDeviceSynchronize()
+    enddo
+    call cpu_time(end)
+    write(*, '(a28, f8.4)') 'do_cublas: dt (sec) = ', (end - start) !/ n_iter 
+    
+    ! d2h data transfer
+    c = d_c
+    
+    ! deallocate device matrices
+    deallocate(d_a, d_b, d_c)
+
+  end subroutine do_cublas
+ 
+  !==================================================================
+  subroutine do_cpu(a, b, c)
+    real, intent(in), dimension(:,:) :: a, b
+    real, intent(out), dimension(:,:) :: c
+    
+    integer :: i, j, n, l, m, try
+    real, start, end
+  
+    ! get array sizes
+    n = size(a, 1)
+    m = size(a, 2)
+    l = size(b, 2)
+
+    call cpu_time(start)   
+    do j = 1, l
+       do i = 1, n
+         c(i, j) = dot_product(a(i, :), b(:, j))
+       enddo
+    enddo
+    call cpu_time(end)
+    write(*, '(a28, f8.4)') 'do_cpu: dt (sec) = ', (end - start) !/ n_iter
+
+  end subroutine do_cpu
+  !==================================================================
+  logical function assert(a, b, tol) result(flag)
+    real, intent(in), dimension(:,:) :: a, b
+    real, intent(in) :: tol
+    logical :: flag
+    
+    real, max_diff
+    
+    max_diff = 0.0
+    max_diff = maxval(abs(a - b))
+    flag     = max_diff .le. tol
+    
+    print*, max_diff
+    
+  end function assert
+  
+  !==================================================================
+
+end module host_lib

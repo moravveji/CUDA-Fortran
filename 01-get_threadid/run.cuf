@@ -1,0 +1,28 @@
+
+program run
+  use cudafor
+  use dev_lib
+
+  implicit none
+
+  integer, parameter :: n = 100
+  integer, allocatable, device :: d_arr(:) ! device array
+  integer :: arr(n)  ! host array
+  integer :: istat
+
+  istat = cudaSetDevice(0)
+  print*, 'istat=', istat
+  
+  allocate(d_arr(n))
+
+  arr = 0
+  d_arr = arr
+
+  call get_id<<<1, n>>> (d_arr)
+  
+  arr = d_arr
+
+  deallocate(d_arr)  
+
+  print*, arr(1), arr(n)
+end program run

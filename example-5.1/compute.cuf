@@ -1,0 +1,39 @@
+
+program compute
+  
+  use host_lib
+  
+  implicit none
+  
+  integer, parameter :: slice = 16, &
+                        n = slice * 200, &
+                        m = slice * 300, &
+                        l = slice * 400
+  real :: a(n, m), b(m, l), c_gpu(n, l), c_cublas(n, l), c_blas(n, l), c_cpu(n, 1)
+  real, parameter :: tolerance = 2d-3
+  
+  call random_number(a)
+  call random_number(b)
+  
+  ! Run on GPU
+  call do_mul_gpu(a, b, c_gpu)
+ 
+  ! Run on GPU
+  call do_cublas(a, b, c_cublas)
+ 
+  ! Run on CPU using BLAS library
+  call do_blas(a, b, c_blas)
+
+  ! Run on CPU using a double loop
+  call do_cpu(a, b, c_cpu)
+  
+  ! Assert the results are correct
+  print*, 'assert c_cpu = c_gpu', assert(c_cpu, c_gpu, tolerance)
+  print*, 'assert c_cpu = c_blas', assert(c_cpu, c_blas, tolerance)
+  print*, 'assert c_gpu = c_blas', assert(c_gpu, c_blas, tolerance)
+  print*, 'assert c_blas = c_cublas', assert(c_blas, c_cublas, tolerance)
+  
+  print*, c_cpu(11, 12), c_gpu(11, 12), c_blas(11, 12), c_cublas(11, 12)
+ 
+end program compute
+

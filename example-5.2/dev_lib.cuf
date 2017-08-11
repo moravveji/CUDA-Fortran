@@ -1,0 +1,25 @@
+
+module dev_lib
+
+  implicit none
+  
+  contains
+  
+  attributes(global) subroutine increment_matrix(a, n, slice)
+    integer, intent(in), value :: n, slice
+    real, intent(inout), device :: a(n, n)
+    
+    real :: i, j
+    
+    i = slice * (blockidx% x - 1) + threadidx% x
+    j = slice * (blockidx% y - 1) + threadidx% y
+    
+    if (i <= n .and. j <= n) then 
+       a(i, j) = a(i, j) + 1.0
+    endif
+    
+    return
+    
+  end subroutine increment_matrix
+
+end module dev_lib

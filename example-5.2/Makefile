@@ -1,6 +1,6 @@
 
 FC = pgfortran
-FCFLAGS = -c
+FCFLAGS = -c -g
 CUDAFLAGS = -Minfo=all -Mcuda -Mfree
 
 WHICH_FC = $(shell which $(FC))
@@ -17,7 +17,7 @@ compile: $(EXE)
 run: ./prog.exe
 
 $(EXE): $(OBJS)
-	$(FC) -o $(EXE) $(OBJS) $(LIBS)
+	$(FC) -o $(EXE) $(OBJS) $(CUDAFLAGS)
   
 %.o: %.cuf
 	$(FC) $(FCFLAGS) -o $@ $<

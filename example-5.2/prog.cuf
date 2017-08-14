@@ -7,7 +7,7 @@ program prog
   
   implicit none
   
-  integer, parameter :: n = 100, sz = n * n
+  integer, parameter :: slice = 10, n = 100, sz = n * n
   
   type(c_ptr) :: a       ! C-type pointer on host
   type(c_devptr) :: a_d  ! C-type pointer on device
@@ -20,14 +20,20 @@ program prog
   ! tell the host & device to use mapped memory
   istat = cudaSetDeviceFlags(cudaDeviceMapHost) 
   
-  ! allocate pinned memory on the host on a pointer
+  ! allocate pinned memory on the host for the pointer
   istat = cudaHostAlloc(a, sz * sizeof(1.0), cudaHostAllocMapped)
   
   ! now, move the c_ptr pointer to the fortran host pointer
   call c_f_pointer(a, fa, (/ n, n /))
   
   ! update the data of the host pointer with some nonsence data
-  call random_number(fa)
+!  call random_seed()
+!  call random_number(fa)
+  do j = 1, n
+     do i = 1, n
+        fa(i, j) = real(i) + n * j
+     enddo
+  enddo
   
   ! get a device array to the same host pointer array
   istat = cudaHostGetDevicePointer(a_d, a, 0)
@@ -40,13 +46,17 @@ program prog
   threads = dim3(n, n, 1)
   
   ! launch the kernel, and store the result in the fortran device pointer
-  call increment_matrix <<<blocks, threads>>>(fa_d, n)
+  call increment_matrix <<<blocks, threads>>>(fa_d, n, slice)
   
   ! sync the device and host immediately
   istat = cudaDeviceSynchronize()
   
   ! can you modify the pointer value on the device?
- ! print a(1, 1), a_d(1, 1), fa(1, 1), fa_d(1, 1)
+  do j = 1, n
+      do i = 1, n
+          if (fa(i, j) /= real(i) + n * j) write(*,*) 'failure at (i, j) = ', i, j
+      enddo
+  enddo
   
   ! deallocate the host pointer
   istat = cudaFreeHost(a)

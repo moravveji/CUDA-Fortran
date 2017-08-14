@@ -1,0 +1,146 @@
+
+module dev
+  
+  use cudafor
+  
+  implicit none
+  
+  ! With PGI 17.4, still the pointers must be only declared at the module scope
+  integer, dimension(:), allocatable, device, target :: d_a ! array on the device
+  integer, dimension(:), allocatable, target :: d_b
+  integer, dimension(:), pointer, texture :: d_ptr_tex
+    
+  contains
+  
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  attributes(global) subroutine dummy(n, a)
+    integer, intent(in), value :: n
+    integer, intent(out), dimension(n) :: a 
+    
+    integer :: i
+    
+    i = blockdim% x * blockidx% x + threadidx% x
+    if (i .le. n) a(i) = i
+    
+  end subroutine dummy
+  
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  attributes(global) subroutine get_tex_value(host_arr, n)
+    integer, intent(inout), dimension(:) :: host_arr
+    integer, intent(in), value :: n
+    
+    integer :: i
+    
+    i = threadidx%x + blockdim%x * (blockidx%x - 1)
+    
+    if (i <= n) then 
+       host_arr(i) = d_ptr_tex(i) 
+    endif
+    
+  end subroutine get_tex_value
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  
+end module dev
+
+
+
+
+
+
+program exper_1
+  use dev
+  
+  implicit none
+  
+  integer, parameter :: n = 1
+
+  integer, dimension(:), allocatable, device, target :: h_a ! array on the host
+  integer, dimension(:), pointer :: h_ptr_a => null()
+
+  integer, dimension(:), pointer, device :: d_ptr_a ! device pointer
+  integer, dimension(:), pointer :: h_ptr_b
+
+  integer, dimension(:), allocatable, device, target :: d_t
+  integer, dimension(:), allocatable :: host_arr
+
+  integer :: ierr
+  
+  print*
+  print '(a)', 'Note: below, the symbol "X=>Y" means pointer X points at array Y.'
+  print*
+  ! Can device pointer point at a host target?
+  call do_dev_ptr_2_host_targ()
+  
+  ! Can host pointer point at a device target?
+  call do_h_ptr_2_dev_targ()
+  
+  call do_dev_tex_2_dev_targ()
+    
+  ! deprecate arrays/pointers
+  h_ptr_a => null() 
+  deallocate(h_a)
+
+  contains
+  
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  subroutine do_dev_ptr_2_host_targ()
+    integer :: jerr
+    ! allocate the host array, and let the device pointer point to it
+    allocate(h_a(n), stat=ierr)
+    if (ierr /= 0) stop 'host allocation failed for h_a'
+    if (associated(d_ptr_a)) nullify(d_ptr_a)
+    
+    d_ptr_a => h_a
+    d_ptr_a(:) = +1
+    if (associated(d_ptr_a)) print*, 'is associated'
+    if (allocated(d_ptr_a)) print*, 'is allocated'
+    print '(a)', 'Failed: device pointer cannot => to host target array' 
+    print*
+  
+  end subroutine do_dev_ptr_2_host_targ
+  
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  subroutine do_h_ptr_2_dev_targ()
+    ! allocate the host array, and point it to a device array
+    allocate(d_b(n), stat=ierr)
+    if (ierr /= 0) stop 'host allocation failed for d_b'
+    h_ptr_b => d_b
+    d_b = +2
+    if (h_ptr_b(1) == 2) then 
+      print '(a)', 'OK: host pointer can => to device target array'
+    else
+      print '(a)', 'Failed: host pointer cannot => to device target array'
+    endif
+    print*
+  
+  end subroutine do_h_ptr_2_dev_targ
+
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
+  subroutine do_dev_tex_2_dev_targ()
+    
+    allocate(d_t(n), stat=ierr)
+    if (ierr /= 0) stop 'device texture pointer array failed to allocate'
+
+    ! Tie the texture pointer to the host device pointer  
+    d_ptr_tex => d_t
+    d_ptr_tex = +3
+    
+    allocate(host_arr(n)); host_arr = 0
+    call get_tex_value<<< 1, 1 >>>(d_ptr_tex, n)
+    
+    host_arr(:) = d_ptr_tex(:)
+    if (host_arr(1) == 3) then 
+       print "(a)", 'OK: host array can => the device pointer texture'
+    else
+       print '(a)', 'Failed: host array cannot => the device pointer texture'
+    endif
+    print*
+    
+    deallocate(d_t)
+    
+  end subroutine do_dev_tex_2_dev_targ
+
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+end program exper_1

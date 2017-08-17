@@ -30,20 +30,6 @@ module dev
     val = a(1)
      
   end subroutine device_gets_from_device
-
-  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  attributes(global) subroutine allocate_dev_managed_data(n, val)
-    integer, intent(in), value :: n, val
-
-    integer :: i 
-
-    i = threadidx% x + blockdim% x * (blockidx% x - 1)
-    if (i == 1) then 
-       d_err = cudaMallocManaged(d_mng_c, n, cudaMemAttachGlobal)
-       d_err(i) = val
-    endif
-
-  end subroutine allocate_dev_managed_data
   
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   attributes(global) subroutine get_tex_value(host_arr, n)
@@ -170,8 +156,7 @@ module host
     
     send = 4
     receive = 0
-    call allocate_dev_managed_data<<<1,1>>>(n, send)
-
+    call allocate_
     print*
   
   end subroutine ping_2_managed_data

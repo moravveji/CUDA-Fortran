@@ -1,8 +1,6 @@
 
 module dev
   
-  use cudafor
-  
   implicit none
   
   ! With PGI 17.4, still the pointers must be only declared at the module scope
@@ -15,7 +13,7 @@ module dev
   
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   attributes(global) subroutine device_sets_on_device(a, val)
-    integer, intent(inout) :: a(:)
+    integer, intent(inout), device :: a(:)
     integer, intent(in), value :: val
     
     a = val
@@ -24,13 +22,31 @@ module dev
   
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   attributes(global) subroutine device_gets_from_device(a, val)
-    integer, intent(in) :: a(:)
+    integer, intent(in), device :: a(:)
     integer, value :: val
     
     val = a(1)
      
   end subroutine device_gets_from_device
+
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  attributes(global) subroutine device_sets_pinned_on_device(a, val)
+    integer, intent(inout) :: a(:)
+    integer, intent(in), value :: val
+    
+    a = val
+    
+  end subroutine device_sets_pinned_on_device
   
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  attributes(global) subroutine device_gets_pinned_from_device(a, val)
+    integer, intent(in), dimension(:) :: a
+    integer, value :: val
+    
+    val = a(1)
+     
+  end subroutine device_gets_pinned_from_device
+
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   attributes(global) subroutine get_tex_value(host_arr, n)
     integer, intent(inout), dimension(:) :: host_arr
@@ -53,6 +69,7 @@ end module dev
 
 module host
 
+  use cudafor  
   use dev
   
   implicit none
@@ -63,13 +80,13 @@ module host
   contains 
   
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  subroutine ping_dev_ptr_2_host_targ()
+  subroutine pin_dev_ptr_2_host_targ()
     integer, dimension(:), allocatable, device, target :: h_a ! array on the host
     integer, dimension(:), device, pointer :: d_ptr_a
     integer :: jerr
     integer :: send, receive
     
-    print '(a)', 'ping_dev_ptr_2_host_targ:'
+    print '(a)', 'pin_dev_ptr_2_host_targ:'
     
     ! allocate the host array, and let the device pointer point to it
     if (allocated(h_a)) deallocate(h_a) 
@@ -93,15 +110,15 @@ module host
     
     deallocate(h_a)
   
-  end subroutine ping_dev_ptr_2_host_targ  
+  end subroutine pin_dev_ptr_2_host_targ  
   
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  subroutine ping_h_ptr_2_dev_targ()
+  subroutine pin_h_ptr_2_dev_targ()
     integer, dimension(:), pointer :: h_ptr_b
     
     integer :: send, receive
 
-    print '(a)', 'ping_h_ptr_2_dev_targ:'
+    print '(a)', 'pin_h_ptr_2_dev_targ:'
     
     ! allocate the host array, and point it to a device array
     allocate(d_b(n), stat=ierr)
@@ -125,21 +142,19 @@ module host
     
     deallocate(d_b)
   
-  end subroutine ping_h_ptr_2_dev_targ
+  end subroutine pin_h_ptr_2_dev_targ
 
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  subroutine ping_2_managed_data()
+  subroutine pin_2_managed_data()
     integer, dimension(:), allocatable, managed :: h_mng_c
     
-    integer :: send, receive
+    integer :: send, receive, ifree
 
-    print '(a)', 'ping_to_managed_data:'
+    print '(a)', 'pin_to_managed_data:'
     
-    print '(a)', 'Test 1: managed data on host'
-    allocate(h_mng_c(n), stat=ierr)
     ierr = cudaMallocManaged(h_mng_c, n, cudaMemAttachGlobal)
     if (ierr /= 0) stop 'host failed to allocate managed array'
-    print '(a)', 'OK: host can allocate managed data array'
+    print '(a)', 'OK: host can: cudaMallocManaged(..., cudaMemAttachGlobal)'
     
     send = 3
     receive = 0
@@ -147,24 +162,78 @@ module host
     call device_gets_from_device<<<1,1>>>(h_mng_c, receive)
     
     if (send == receive) then 
-        print '(a)', 'OK: host can send and receive a managed data on device'
+        print '(a)', 'OK: host and device can read/write on managed data'
     else 
-        print '(a)', 'Failed: host cannot send and receive a managed data on device'
+        print '(a)', 'Failed: host and device cannot read/write on managed data'
     endif
     
-    print '(a)', 'Test 2: managed data on device: d_mng_c'
-    
+    ifree = cudaFree(h_mng_c)
+    if (ifree == 0) then  
+       print '(a)', 'OK: cudaFree() released the managed memory'
+    else 
+       print '(a)', 'Failed: cudaFree() cannot release the managed memory'
+    endif
+    print*
+
+  end subroutine pin_2_managed_data
+
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  subroutine pin_2_pinned_data()
+    use, intrinsic :: iso_c_binding
+
+    integer, dimension(:), allocatable, pinned :: h_pin_e
+
+    type(c_ptr) :: h_cptr                                ! host C pointer
+    type(c_devptr) :: d_cptr                             ! device C pointer 
+    integer, dimension(:), pointer :: h_fptr             ! host fortran pointer array
+    integer, dimension(:), allocatable, device, target :: d_farr ! device fortran array
+
+    integer :: send, receive, ipin
+
+    print '(a)', 'pin_2_pinned_data:'
+
+    print '(a)', 'step 1: call cudaSetDeviceFlags(cudaDeviceMapHost)'
+    ipin = cudaSetDeviceFlags(cudaDeviceMapHost)
+
+    print '(a)', 'step 2: call cudaHostAlloc(cptr, size, cudaHostAllocMapped)'
+    ipin = cudaHostAlloc(h_cptr, n*sizeof(1), cudaHostAllocMapped)
+    if (ipin /= 0) stop 'cudaHostAlloc() failed'
+
+    print '(a)', 'step 3: call c_f_pointer(cptr, fptr, size)'
+    call c_f_pointer(h_cptr, h_fptr, (/ n /))
+    h_fptr(:) = -1
+
+    ! put some values into the host pointer
     send = 4
     receive = 0
-    call allocate_
-    print*
-  
-  end subroutine ping_2_managed_data
+
+    print '(a)', 'step 4: call cudaHostGetDevicePointer(d_cptr, h_cptr, size)'
+    ipin = cudaHostGetDevicePointer(d_cptr, h_cptr, 0)
+
+    print '(a)', 'step 5: call c_f_pointer(d_cptr, h_fptr, size)'
+    call c_f_pointer(d_cptr, d_farr, (/ n /))
+
+    ! Test data movement between host and device    
+    call device_sets_on_device<<<1,1>>>(d_farr, send)
+    ierr = cudaDeviceSynchronize()
+    receive = h_fptr(1)
+
+    if (send == receive) then 
+        print '(a)', 'OK: host can read/write on the pinned array'
+    else
+        print '(a)', 'Failed: host cannot read/write on the pinned array'
+        print '(2(a,i))', 'send = ', send, ', receive = ', receive
+    endif
+    print *
+
+    ierr = cudaFreeHost(h_cptr)
+
+  end subroutine pin_2_pinned_data
   
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  subroutine ping_dev_tex_2_dev_targ()
+  subroutine pin_dev_tex_2_dev_targ()
     
-  end subroutine ping_dev_tex_2_dev_targ
+  end subroutine pin_dev_tex_2_dev_targ
     
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -188,15 +257,18 @@ program exper_1
   print '(a)', 'Note: below, the symbol "X=>Y" means pointer X points at array Y.'
   print*
   ! Can device pointer point at a host target?
-  call ping_dev_ptr_2_host_targ()
+  call pin_dev_ptr_2_host_targ()
   
   ! Can host pointer point at a device target?
-  call ping_h_ptr_2_dev_targ()
+  call pin_h_ptr_2_dev_targ()
  
   ! Can host and device arrays read/write to a managed memory?
-  call ping_2_managed_data()
+  call pin_2_managed_data()
+
+  ! Can host and device arrays access a pinned (page-locked) memory address?
+  call pin_2_pinned_data()
 
   ! Can  
-  call ping_dev_tex_2_dev_targ()
+  call pin_dev_tex_2_dev_targ()
     
 end program exper_1

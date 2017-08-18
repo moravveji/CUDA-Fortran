@@ -39,6 +39,9 @@ program prog
   ! copy the c_devptr device pointer to a device fortran array
   call c_f_pointer(a_d, fa_d, (/ n, n /))
   
+  ! manually forcing the host pointer to point at the device target array
+  fa => fa_d 
+
   ! specify the kernel launching specs
   blocks = dim3(n, n, 1)
   threads = dim3(n, n, 1)

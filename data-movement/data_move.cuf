@@ -1,0 +1,274 @@
+
+module dev
+  
+  implicit none
+  
+  ! With PGI 17.4, still the pointers must be only declared at the module scope
+  integer, dimension(:), allocatable, device, target :: d_a ! array on the device
+  integer, dimension(:), allocatable, target :: d_b
+  integer, dimension(:), allocatable, managed :: d_mng_c
+  integer, dimension(:), pointer, texture :: d_ptr_tex
+    
+  contains
+  
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  attributes(global) subroutine device_sets_on_device(a, val)
+    integer, intent(inout), device :: a(:)
+    integer, intent(in), value :: val
+    
+    a = val
+    
+  end subroutine device_sets_on_device
+  
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  attributes(global) subroutine device_gets_from_device(a, val)
+    integer, intent(in), device :: a(:)
+    integer, value :: val
+    
+    val = a(1)
+     
+  end subroutine device_gets_from_device
+
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  attributes(global) subroutine device_sets_pinned_on_device(a, val)
+    integer, intent(inout) :: a(:)
+    integer, intent(in), value :: val
+    
+    a = val
+    
+  end subroutine device_sets_pinned_on_device
+  
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  attributes(global) subroutine device_gets_pinned_from_device(a, val)
+    integer, intent(in), dimension(:) :: a
+    integer, value :: val
+    
+    val = a(1)
+     
+  end subroutine device_gets_pinned_from_device
+
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  attributes(global) subroutine get_tex_value(host_arr, n)
+    integer, intent(inout), dimension(:) :: host_arr
+    integer, intent(in), value :: n
+    
+    integer :: i
+    
+    i = threadidx%x + blockdim%x * (blockidx%x - 1)
+    
+    if (i <= n) then 
+       host_arr(i) = d_ptr_tex(i) 
+    endif
+    
+  end subroutine get_tex_value
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  
+end module dev
+
+
+
+module host
+
+  use cudafor  
+  use dev
+  
+  implicit none
+
+  integer, parameter :: n = 1
+  integer :: ierr
+  
+  contains 
+  
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  subroutine pin_dev_ptr_2_host_targ()
+    integer, dimension(:), allocatable, device, target :: h_a ! array on the host
+    integer, dimension(:), device, pointer :: d_ptr_a
+    integer :: jerr
+    integer :: send, receive
+    
+    print '(a)', 'pin_dev_ptr_2_host_targ:'
+    
+    ! allocate the host array, and let the device pointer point to it
+    if (allocated(h_a)) deallocate(h_a) 
+    allocate(h_a(n), stat=ierr)
+    if (ierr /= 0) stop 'host allocation failed for h_a'
+    if (associated(d_ptr_a)) nullify(d_ptr_a) 
+    
+    d_ptr_a => h_a
+
+    send = +1
+    call device_sets_on_device<<<1,1>>>(d_ptr_a, send)
+    call device_gets_from_device<<<1,1>>>(d_ptr_a, receive)
+    
+    if (receive == send) then
+      print '(a)', 'OK: host can send to and receive from a device pointer'
+    else
+      print '(a)', 'Failed: host cannot send/receive with a device pointer'
+      print '(2(a,1x,i12))', 'sent: ', send, ', and received: ', receive
+    endif
+    print*
+    
+    deallocate(h_a)
+  
+  end subroutine pin_dev_ptr_2_host_targ  
+  
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  subroutine pin_h_ptr_2_dev_targ()
+    integer, dimension(:), pointer :: h_ptr_b
+    
+    integer :: send, receive
+
+    print '(a)', 'pin_h_ptr_2_dev_targ:'
+    
+    ! allocate the host array, and point it to a device array
+    allocate(d_b(n), stat=ierr)
+    if (ierr /= 0) stop 'host allocation failed for d_b'
+    print '(a)', 'OK: host can allocate a device array'
+    
+    h_ptr_b => d_b
+    print '(a)', 'OK: host pointer can point at a device array'
+
+    send = 2
+    receive = 0
+    d_b = send           ! copy data to device
+    receive = h_ptr_b(1) ! fetch data from the host pointer
+    
+    if (send == receive) then 
+       print '(a)', 'OK: host pointer can read/write to device target'
+    else
+       print '(a)', 'Failed: host pointer cannot read/write to device target'
+    endif
+    print *
+    
+    deallocate(d_b)
+  
+  end subroutine pin_h_ptr_2_dev_targ
+
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  subroutine pin_2_managed_data()
+    integer, dimension(:), allocatable, managed :: h_mng_c
+    
+    integer :: send, receive, ifree
+
+    print '(a)', 'pin_to_managed_data:'
+    
+    ierr = cudaMallocManaged(h_mng_c, n, cudaMemAttachGlobal)
+    if (ierr /= 0) stop 'host failed to allocate managed array'
+    print '(a)', 'OK: host can: cudaMallocManaged(..., cudaMemAttachGlobal)'
+    
+    send = 3
+    receive = 0
+    call device_sets_on_device<<<1,1>>>(h_mng_c, send)
+    call device_gets_from_device<<<1,1>>>(h_mng_c, receive)
+    
+    if (send == receive) then 
+        print '(a)', 'OK: host and device can read/write on managed data'
+    else 
+        print '(a)', 'Failed: host and device cannot read/write on managed data'
+    endif
+    
+    ifree = cudaFree(h_mng_c)
+    if (ifree == 0) then  
+       print '(a)', 'OK: cudaFree() released the managed memory'
+    else 
+       print '(a)', 'Failed: cudaFree() cannot release the managed memory'
+    endif
+    print*
+
+  end subroutine pin_2_managed_data
+
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  subroutine pin_2_pinned_data()
+    use, intrinsic :: iso_c_binding
+
+    integer, dimension(:), allocatable, pinned :: h_pin_e
+
+    type(c_ptr) :: h_cptr                                ! host C pointer
+    type(c_devptr) :: d_cptr                             ! device C pointer 
+    integer, dimension(:), pointer :: h_fptr             ! host fortran pointer array
+    integer, dimension(:), allocatable, device, target :: d_farr ! device fortran array
+
+    integer :: send, receive, ipin
+
+    print '(a)', 'pin_2_pinned_data:'
+
+    print '(a)', 'step 1: call cudaSetDeviceFlags(cudaDeviceMapHost)'
+    ipin = cudaSetDeviceFlags(cudaDeviceMapHost)
+
+    print '(a)', 'step 2: call cudaHostAlloc(cptr, size, cudaHostAllocMapped)'
+    ipin = cudaHostAlloc(h_cptr, n*sizeof(1), cudaHostAllocMapped)
+    if (ipin /= 0) stop 'cudaHostAlloc() failed'
+
+    print '(a)', 'step 3: call c_f_pointer(cptr, fptr, size)'
+    call c_f_pointer(h_cptr, h_fptr, (/ n /))
+    h_fptr(:) = -1
+
+    ! put some values into the host pointer
+    send = 4
+    receive = 0
+
+    print '(a)', 'step 4: call cudaHostGetDevicePointer(d_cptr, h_cptr, size)'
+    ipin = cudaHostGetDevicePointer(d_cptr, h_cptr, 0)
+
+    print '(a)', 'step 5: call c_f_pointer(d_cptr, h_fptr, size)'
+    call c_f_pointer(d_cptr, d_farr, (/ n /))
+
+    ! Test data movement between host and device    
+    call device_sets_on_device<<<1,1>>>(d_farr, send)
+    ierr = cudaDeviceSynchronize()
+    receive = h_fptr(1)
+
+    if (send == receive) then 
+        print '(a)', 'OK: host can read/write on the pinned array'
+    else
+        print '(a)', 'Failed: host cannot read/write on the pinned array'
+        print '(2(a,i4))', 'send = ', send, ', receive = ', receive
+    endif
+    print *
+
+    ierr = cudaFreeHost(h_cptr)
+
+  end subroutine pin_2_pinned_data
+  
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  subroutine pin_dev_tex_2_dev_targ()
+    
+  end subroutine pin_dev_tex_2_dev_targ
+    
+  !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+end module host
+
+
+
+
+program data_move
+  use dev
+  use host
+  
+  implicit none
+  
+  integer, dimension(:), pointer :: h_ptr_a => null()
+
+  integer, dimension(:), allocatable, device, target :: d_t
+  integer, dimension(:), allocatable :: host_arr
+
+  print*
+  print '(a)', 'Note: below, the symbol "X=>Y" means pointer X points at array Y.'
+  print*
+  ! Can device pointer point at a host target?
+  call pin_dev_ptr_2_host_targ()
+  
+  ! Can host pointer point at a device target?
+  call pin_h_ptr_2_dev_targ()
+ 
+  ! Can host and device arrays read/write to a managed memory?
+  call pin_2_managed_data()
+
+  ! Can host and device arrays access a pinned (page-locked) memory address?
+  call pin_2_pinned_data()
+
+  ! Can  
+  call pin_dev_tex_2_dev_targ()
+    
+end program data_move

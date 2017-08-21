@@ -9,10 +9,10 @@ DIR_LIB = $(shell echo $(DIR_FC))
 all: compile run
 
 compile:
-	$(FC) -o run_1.exe exper_1.cuf -L$(DIR_LIB) $(CUDAFLAGS)
+	$(FC) -o run.exe data_move.cuf -L$(DIR_LIB) $(CUDAFLAGS)
 
 run:
-	./run_1.exe
+	./run.exe
 
 clean:
 	rm -f *.o *.mod *.exe

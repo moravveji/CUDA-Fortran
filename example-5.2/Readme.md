@@ -5,9 +5,9 @@ Practicing the allocation and access of the mapped device pointers in CUDA Fortr
 
 ## Procedure to Allocate Pinned Memory
 Turns out that the following steps must be taken to be able to access the page-locked memory on the host, and there is no direct way in Fortran to do so. An intervention with the `C` pointers is required:
-1. First, we tell the device that we are about to use the mapped memory on the deivce, i.e. `cudaSetDeviceFlags(cudaDeviceMapHost)`. Now, the device knows where to allocate the `C`-type pointers. Let's call it `a`.
+1. First, we tell the device that we are about to use the mapped memory on the deivce, i.e. `cudaSetDeviceFlags(cudaDeviceMapHost)`. Now, the device knows where to allocate the `C`-type pointers, which call it `a`.
 2. Then, the `C`-type pointers (`type(c_ptr) :: cptr`) can be allocated on the host, using a call to `cudaHostAlloc()`.
-3. Convert the C-type pointer to a Fortran-type pointer with the call to `c_f_pointer()` either for the host or device variable. Read more about this function here: https://gcc.gnu.org/onlinedocs/gfortran/C_005fF_005fPOINTER.html. Let's call this pointer `fa`.
+3. Convert the C-type pointer to a Fortran-type pointer with the call to `c_f_pointer()` either for the host or device variable. Read more about this function here: https://gcc.gnu.org/onlinedocs/gfortran/C_005fF_005fPOINTER.html, which we call this pointer `fa`.
 4. use the Fortran-type host pointer `fa` for allocation and passing values. 
 5. One can specify a `type(c_devptr)` C-type device pointer `a_d`, at the same memory location of the original C-type pointer `a`, and point `a_d` to `a`.
 6. Then, you allocate a device Fortran-type pointer `fa_d`, and now *pin* `fa_d` to the memory location of `a_d` on the device (using `c_f_pointer`).

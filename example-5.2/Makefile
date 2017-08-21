@@ -7,14 +7,14 @@ WHICH_FC = $(shell which $(FC))
 DIR_FC = $(shell dirname $(WHICH_FC))
 DIR_LIB = $(shell echo $(DIR_FC))/../lib
 
-OBJS = dev_lib.o prog.o 
-EXE = prog.exe
+OBJS = dev.o page77.o 
+EXE = run.exe
 
 all: compile run
 
 compile: $(EXE)
 
-run: ./prog.exe
+run: ./run.exe
 
 $(EXE): $(OBJS)
 	$(FC) -o $(EXE) $(OBJS) $(CUDAFLAGS)

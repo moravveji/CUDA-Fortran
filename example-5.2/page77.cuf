@@ -1,0 +1,44 @@
+
+program page77
+
+  use cudafor
+  use dev
+  use, intrinsic :: iso_c_binding
+
+  implicit none
+
+  type(c_ptr) :: a
+  type(c_devptr) :: a_d
+  real, dimension(:,:), pointer :: fa
+  real, dimension(:,:), allocatable, device :: fa_d
+
+  integer :: istat, i, j
+  type(dim3) :: blocks, threads
+
+  istat = cudaSetDeviceFlags(cudaDeviceMapHost)
+
+  istat = cudaHostAlloc(a, 100*100*sizeof(1.0), cudaHostAllocMapped)
+
+  call c_f_pointer(a, fa, (/ 100, 100 /))
+
+  fa(1:100, 1:100) = 0.0
+
+  istat = cudaHostGetDevicePointer(a_d, a, 0)
+  
+  call c_f_pointer(a_d, fa_d, (/ 100, 100 /))
+
+  blocks  = dim3(10, 10, 1)
+  threads = dim3(10, 10, 1)
+ 
+  call incr <<<blocks, threads>>> (fa_d, 100)
+
+  do j = 1, 100
+     do i = 1, 100
+        if (fa(i,j) /= 1.0) print*, i, j
+     enddo
+  enddo
+
+  istat = cudaFreeHost(a)
+
+end program page77
+

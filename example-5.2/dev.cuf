@@ -1,0 +1,22 @@
+module dev
+  implicit none
+  contains
+
+  attributes(global) subroutine incr(arr, n)
+    integer, intent(in), value :: n
+    real, intent(inout), device :: arr(n,n)
+
+    integer :: i, j
+
+    i = threadidx%x + 10*(blockidx%x - 1)
+    j = threadidx%y + 10*(blockidx%y - 1)
+
+    if ((i <= n) .and. (j <= n)) then
+       arr(i, j) = arr(i, j) + 1.0
+    endif
+
+    return
+
+  end subroutine incr
+end module dev
+

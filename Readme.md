@@ -7,6 +7,7 @@ The purpose of this repository is to experiment with the basics of CUDA programm
 + `01-get-threadid` 
 + `example-5.1`: An extensive example for large matrix by matrix multiplication using CPU (double loop or OpenBLAS) and GPU (cuBLAS and slicing).
 + `example-5.2`: replica of the mapped-memory allocation 
++ `memory-bandwidth`: measures the effective Host2Device and Device2Host transfers for the pinned versus pageable memory.
 
 ## Requirements
 

@@ -70,11 +70,15 @@ program main_access
   print*, '%%% Strided Texture Access %%%'
   c_d = 0.0
   print*, allocated(a_Tex), associated(a_Tex)
-  allocate(a_Tex(n*nmax))
+  !allocate(a_Tex(n*nmax))
+  !print*, allocated(a_Tex), associated(a_Tex)
+  if (allocated(c_d)) then
+    a_Tex => c_d
+  else
+    stop 'Error: c_d not allocate yet. Cannot associate ptr to it'
+  endif 
   print*, allocated(a_Tex), associated(a_Tex)
-  a_Tex => c_d
-  print*, allocated(a_Tex), associated(a_Tex)
-  stop 0
+  !stop 0
 
   call stride_texture<<<n_blocks, block_size>>> (c_d, 1)
 

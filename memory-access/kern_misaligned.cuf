@@ -1,0 +1,18 @@
+
+module kern_misaligned
+  
+  implicit none
+  contains
+
+  attributes(global) subroutine offset(a, shift)
+    real, intent(inout) :: a(:)
+    integer, intent(in), value :: shift
+
+    integer :: i
+
+    i = blockDim%x * (blockIdx%x - 1) + threadIdx% x + shift
+    a(i) = a(i) + 1
+
+  end subroutine offset
+
+end module kern_misaligned

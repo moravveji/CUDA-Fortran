@@ -1,0 +1,20 @@
+
+module kern_texture
+
+  implicit none
+  real, pointer, texture :: a_Tex(:)
+  
+  contains
+
+  attributes(global) subroutine stride_texture(a, jump)
+    real :: a(:)
+    integer, value, intent(in) :: jump
+    integer :: i, is
+
+    i = blockDim%x * (blockIdx%x - 1) + threadIdx%x 
+    is = i * jump
+    a(is) = a_Tex(i) + 1
+
+  end subroutine stride_texture
+
+end module kern_texture

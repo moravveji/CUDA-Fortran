@@ -2,13 +2,13 @@
 module kern_texture
 
   implicit none
-  real, pointer, texture, dimension(:) :: a_Tex => null()
+  real, pointer, texture :: a_Tex(:) => null()
   
   contains
 
   ! a is shorter in size, and a_Tex is larger
   attributes(global) subroutine stride_texture(a, jump)
-    real :: a(:)
+    real, intent(inout) :: a(*)
     integer, value, intent(in) :: jump
     integer :: i, is
 

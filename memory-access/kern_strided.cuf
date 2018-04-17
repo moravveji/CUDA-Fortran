@@ -17,4 +17,20 @@ module kern_strided
 
   end subroutine stride
 
+  ! b is shorter in size and a is larger
+  ! this subroutine is identical to the above, except that the
+  ! intent statements are explicit now
+  ! The read-only "intent(in)" array goes through texture cache
+  attributes(global) subroutine stride_intent(b, a, jump)
+    real, intent(in) :: a(:)
+    real, intent(inout) :: b(:)
+    integer, intent(in), value :: jump
+    integer :: i, is
+
+    i  = blockDim%x * (blockIdx%x - 1) + threadIdx%x
+    is = i * jump
+    b(i) = a(is) + 1
+
+  end subroutine stride_intent
+
 end module kern_strided

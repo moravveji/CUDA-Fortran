@@ -4,15 +4,16 @@ module kern_strided
   implicit none
   contains 
 
-  attributes(global) subroutine stride(a, b, jump)
-    real, intent(inout) :: a(*), b(:)
+  ! b is shorter in size and a is larger
+  attributes(global) subroutine stride(b, a, jump)
+    real :: a(*), b(*)
     integer, intent(in), value :: jump
 
     integer :: i, is
    
     i  = blockDim%x * (blockIdx%x - 1) + threadIdx%x 
     is = i * jump
-    b(is) = a(i) + 1
+    b(i) = a(is) + 1
 
   end subroutine stride
 

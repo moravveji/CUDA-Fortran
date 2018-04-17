@@ -6,6 +6,7 @@ module kern_texture
   
   contains
 
+  ! a is shorter in size, and a_Tex is larger
   attributes(global) subroutine stride_texture(a, jump)
     real :: a(:)
     integer, value, intent(in) :: jump
@@ -13,7 +14,7 @@ module kern_texture
 
     i = blockDim%x * (blockIdx%x - 1) + threadIdx%x 
     is = i * jump
-    a(is) = a_Tex(i) + 1
+    a(i) = a_Tex(is) + 1
 
   end subroutine stride_texture
 

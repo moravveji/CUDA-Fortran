@@ -10,10 +10,9 @@ program main_access
   implicit none
 
   integer, parameter :: nMB = 4, nKB = 1024 * nMB, nB = 1024 * nKB, n = nB/4
-  integer, parameter :: nmax = 33
+  integer, parameter :: nmax = 32
   integer, parameter :: block_size = 256, n_blocks = n / block_size
-  real, device, allocatable :: a_d(:), b_d(:)
-  real, device, target, allocatable :: c_d(:)
+  real, device, allocatable, target :: a_d(:), b_d(:)
   integer :: k, ierr
   character(len=24), parameter :: fmt_screen="(i4, 2(1x, f9.4))", &
                                   fmt_hdr="(a4,2(1x, a9))"
@@ -24,7 +23,7 @@ program main_access
 
   real :: bw_offset(nmax), bw_stride(nmax), bw_texture(nmax)
 
-  allocate(a_d(n), b_d(n*nmax), c_d(n*nmax), stat=ierr)
+  allocate(a_d(n*nmax), b_d(n), stat=ierr)
   if (ierr /= 0) stop 'Error: Allocate failed'
 
   ierr = cudaEventCreate(start)
@@ -33,14 +32,15 @@ program main_access
   print*, ' %%% Offset Access %%%'
   ! warm up
   a_d = 0.0
-  call offset<<<n_blocks, block_size>>> (a_d, 0)
+  b_d = 0.0
+  call offset<<<n_blocks, block_size>>> (b_d, a_d, 0)
   write(*, fmt_hdr) hdr
 
   ! measure bandwidth
   do k = 0, nmax-1
      b_d = 0.0
      ierr = cudaEventRecord(start, 0)
-     call offset<<<n_blocks, block_size>>> (b_d, k)
+     call offset<<<n_blocks, block_size>>> (b_d, a_d, k)
      ierr = cudaEventRecord(finish, 0)
      ierr = cudaEventSynchronize(finish)
      ierr = cudaEventElapsedTime(elapsed, start, finish)
@@ -52,12 +52,12 @@ program main_access
   
   print*, '%%% Strided Access %%%'
   a_d = 0.0
-  call stride<<<n_blocks, block_size>>> (a_d, b_d, 1)
+  call stride<<<n_blocks, block_size>>> (b_d, a_d, 1)
   write(*, fmt_hdr) hdr
   do k = 1, nmax
-     b_d  = 0.0
+     a_d  = 0.0
      ierr = cudaEventRecord(start, 0) 
-     call stride<<<n_blocks, block_size>>> (a_d, b_d, k)
+     call stride<<<n_blocks, block_size>>> (b_d, a_d, k)
      ierr = cudaEventRecord(finish, 0)
      ierr = cudaEventSynchronize(finish)
      ierr = cudaEventElapsedTime(elapsed, start, finish)
@@ -68,21 +68,21 @@ program main_access
   print*
 
   print*, '%%% Strided Texture Access %%%'
-  c_d = 0.0
-  if (allocated(c_d)) then
-    a_Tex => c_d
+  a_d = 0.0
+  if (allocated(a_d)) then
+    a_Tex => a_d
   else
-    stop 'Error: c_d not allocate yet. Cannot associate ptr to it'
+    stop 'Error: a_d not allocate yet. Cannot associate ptr to it'
   endif 
   print*, 'allocated:', allocated(a_Tex), 'associated:', associated(a_Tex)
   !stop 0
 
-  call stride_texture<<<n_blocks, block_size>>> (c_d, 1)
+  call stride_texture<<<n_blocks, block_size>>> (b_d, 1)
 
   do k = 1, nmax
      a_d  = 0.0 
      ierr = cudaEventRecord(start, 0)
-     call stride_texture<<<n_blocks, block_size>>> (c_d, k)
+     call stride_texture<<<n_blocks, block_size>>> (b_d, k)
      ierr = cudaEventRecord(finish, 0)
      ierr = cudaEventSynchronize(finish)
      ierr = cudaEventElapsedTime(elapsed, start, finish)
@@ -93,7 +93,7 @@ program main_access
 
   ! wrap up
   nullify(a_Tex)
-  !deallocate(a_d, b_d)
+  deallocate(a_d, b_d)
   ierr = cudaEventDestroy(start)
   ierr = cudaEventDestroy(finish)
 

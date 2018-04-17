@@ -3,15 +3,17 @@ module kern_misaligned
   
   implicit none
   contains
-
-  attributes(global) subroutine offset(a, shift)
-    real, intent(inout) :: a(:)
+ 
+  ! b is shorter in size and a is larger
+  attributes(global) subroutine offset(b, a, shift)
+    real, intent(inout) :: a(:), b(:)
     integer, intent(in), value :: shift
 
-    integer :: i
+    integer :: i, is
 
-    i = blockDim%x * (blockIdx%x - 1) + threadIdx% x + shift
-    a(i) = a(i) + 1
+    i = blockDim%x * (blockIdx%x - 1) + threadIdx% x 
+    is = i + shift
+    b(i) = a(is) + 1
 
   end subroutine offset
 

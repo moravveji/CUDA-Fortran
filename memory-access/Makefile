@@ -1,5 +1,5 @@
 FC = pgfortran
-FCFLAGS = -Mcuda=cc30,cuda8.0
+FCFLAGS = -Mcuda=cc35,cuda8.0
 
 # Executables
 access  = do_access.exe

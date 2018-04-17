@@ -27,7 +27,7 @@ program main_access
   type(cudaDeviceprop) :: prop
   integer, parameter :: handle = 1
   character(len=32) :: ascii
-  logical, parameter :: write_ascii = .true.
+  logical, parameter :: write_ascii = .false.
 
   ! which device?
   ierr = cudaGetDeviceProperties(prop, 0)
@@ -106,13 +106,13 @@ program main_access
   do k = 1, nmax
      a_d  = 0.0 
      ierr = cudaEventRecord(start, 0)
-!     call stride_texture<<<n_blocks, block_size>>> (b_d, k)
+     call stride_texture<<<n_blocks, block_size>>> (b_d, k)
      ierr = cudaEventRecord(finish, 0)
      ierr = cudaEventSynchronize(finish)
      ierr = cudaEventElapsedTime(elapsed, start, finish)
      bw   = 2 * nB / (elapsed * 1e6)
      bw_texture(k) = bw
-     print*, k, elapsed, bw
+     write(*, fmt_screen) k, elapsed, bw
   enddo
 
   ! wrap up
@@ -121,13 +121,13 @@ program main_access
      open(unit=handle, file=trim(ascii), form='formatted', &
           status='replace', action='write')
      
-    write(unit=handle, '(a4, 4(1x, a12))', advance='yes') 'k', 'misaligned', 'stride', &
+     write(unit=handle, '(a4, 4(1x, a12))', advance='yes') 'k', 'misaligned', 'stride', &
                                                           'with_intent', 'texture'
-    do k = 1, nmax
+     do k = 1, nmax
         write(unit=handle, fmt_ascii, advance='yes') k, bw_offset(k), & 
                                    bw_stride(k), bw_stride_intent(k), bw_texture(k)
      enddo
-     close(handle)
+     close(unit=handle)
   endif
   nullify(a_Tex)
   deallocate(a_d, b_d)

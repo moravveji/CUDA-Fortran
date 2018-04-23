@@ -1,0 +1,18 @@
+
+module kernels
+
+  implicit none
+  real, pointer, texture :: tex(:) => null()  
+
+  contains
+
+  attributes(global) subroutine add_tex(u)
+    real:: u(:)
+    integer :: i
+    
+    i = blockDim%x * (blockIdx%x - 1) + threadIdx%x
+    u(i) = tex(i) + 1
+   
+  end subroutine add_tex
+
+end module kernels

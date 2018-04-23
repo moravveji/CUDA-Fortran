@@ -30,6 +30,7 @@ def main():
 
     plt.tight_layout()
     plt.savefig(i_file.replace('.txt', '.png'), transparent=True)
+    print 'Plot for "%s" created' % i_file
     plt.close()
 
 

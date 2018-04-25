@@ -6,13 +6,25 @@ module kernels
 
   contains
 
-  attributes(global) subroutine add_tex(u)
-    real:: u(:)
-    integer :: i
+  attributes(global) subroutine increment_tex(u)
+    real, intent(inout) :: u(:)
+    integer :: i, n
     
     i = blockDim%x * (blockIdx%x - 1) + threadIdx%x
-    u(i) = tex(i) + 1
+    n = size(u)
+    if (i <= n) u(i) = tex(i) + 1
    
-  end subroutine add_tex
+  end subroutine increment_tex
+
+  attributes(global) subroutine increment(u)
+    real, intent(inout) :: u(:)
+    integer :: i, n
+
+    i = blockDim%x * (blockIdx%x - 1) + threadIdx%x
+    n = size(u)
+
+    if (i <= n) u(i) = u(i) + 1.0
+
+  end subroutine increment
 
 end module kernels

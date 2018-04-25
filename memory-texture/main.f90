@@ -6,22 +6,27 @@ program main
   use kernels
   
   implicit none
-  integer, parameter :: n = 1024
-  integer, parameter :: nb = 4, bs = n / nb
-  real, dimension(n), target, device :: zeros_d, ones_d
+  integer, parameter :: n = 256
+  integer, parameter :: nb = 1, bs = n / nb
+  real, dimension(n), target, device :: zeros_d
+  real, dimension(n), device :: ones_d
   real, dimension(n) :: ones
   integer :: ierr
 
   zeros_d = 0.0
   ones_d  = 0.0
   tex => zeros_d
-  call add_tex<<<nb, bs>>> (ones_d)
-  print*, 'first OK'
+  call increment_tex<<<nb, bs>>> (zeros_d)
+!  call increment<<<nb, bs>>>(zeros_d)
   ierr = cudaThreadSynchronize()
-  print*, ierr, cudaSuccess
-  call add_tex<<<nb, bs>>> (ones_d)
-  print*, 'second OK'
+  if (ierr /= cudaSuccess) then
+     print*, 'Error: kernel launch of cudaThreadSynchronize() failed; ierr=', ierr
+     print('(3(a10,i6))'), 'nb = ', nb, 'bs = ', bs, 'n = ', n
+     print*, cudaGetErrorString(ierr)
+     call exit(ierr)
+  else
+     print*, 'Kernel successfully launched and completed'
+  endif
   ones = ones_d
-  print*, n !, sum(ones)
 
 end program main

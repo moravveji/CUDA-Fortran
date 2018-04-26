@@ -8,15 +8,18 @@ program main
   implicit none
   integer, parameter :: n = 256
   integer, parameter :: nb = 1, bs = n / nb
+  integer :: bytes
   real, dimension(n), target, device :: zeros_d
   real, dimension(n), device :: ones_d
   real, dimension(n) :: ones
   integer :: ierr
 
+  bytes   = sizeof(ones_d(1)) * n
   zeros_d = 0.0
   ones_d  = 0.0
   tex => zeros_d
-  call increment_tex<<<nb, bs>>> (zeros_d)
+
+  call increment_tex<<<nb, bs, bytes>>> (ones_d)
 !  call increment<<<nb, bs>>>(zeros_d)
   ierr = cudaThreadSynchronize()
   if (ierr /= cudaSuccess) then

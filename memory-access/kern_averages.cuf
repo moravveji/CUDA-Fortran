@@ -4,7 +4,7 @@ module kern_averages
   implicit none
 
   integer, parameter :: n = 2048
-  real, dimension(:,:), pointer, texture :: tex => null()
+  real, dimension(:,:), pointer, texture :: tex
 
   ! for the init subroutine
   real, parameter :: pi = 4.0 * atan(1.0)

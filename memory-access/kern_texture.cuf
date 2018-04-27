@@ -2,7 +2,7 @@
 module kern_texture
 
   implicit none
-  real, pointer, texture :: a_Tex(:) => null()
+  real, pointer, texture :: a_Tex(:) 
   
   contains
 

@@ -29,7 +29,8 @@ def main():
     ax.set_ylabel('Bandwidth (GB/sec)')
 
     plt.tight_layout()
-    plt.savefig(i_file.replace('.txt', '.png'), transparent=True)
+    fname = i_file.replace('.txt', '.png').replace(' ', '_')
+    plt.savefig(fname, transparent=True)
     print 'Plot for "%s" created' % i_file
     plt.close()
 

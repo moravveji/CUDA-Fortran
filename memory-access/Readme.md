@@ -21,3 +21,8 @@ The following individual modules contain CUDA kernels which assess different fea
 
 ## Dependencies and Compilation
 This example was compiled with `PGI v.17.4` compiler and `CUDA 8.0` toolkit that ships with the compiler. To compile, just execute `make` to invoke the `Makefile`.
+
+## Results
+The `do_access.exe` provided the following graphs on two Kepler devices, K20Xm and K40c.
+![alt text](Tesla_K40c.png "K40c")
+![alt text](Tesla_K20Xm.png "K20Xm")

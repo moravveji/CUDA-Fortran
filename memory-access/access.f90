@@ -27,7 +27,7 @@ program main_access
   type(cudaDeviceprop) :: prop
   integer, parameter :: handle = 1
   character(len=32) :: ascii
-  logical, parameter :: write_ascii = .false.
+  logical, parameter :: write_ascii = .true.
 
   ! which device?
   ierr = cudaGetDeviceProperties(prop, 0)

@@ -27,6 +27,7 @@ def main():
     ax.legend(loc=1, frameon=False)
     ax.set_xlabel('Offset or Jump')
     ax.set_ylabel('Bandwidth (GB/sec)')
+    ax.set_title(i_file.replace('.txt', ''))
 
     plt.tight_layout()
     fname = i_file.replace('.txt', '.png').replace(' ', '_')

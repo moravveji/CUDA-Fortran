@@ -14,13 +14,21 @@ program main
   real, dimension(n) :: ones
   integer :: ierr
 
+  real, target, device :: dummy_d(n)
+  real, device :: dummy_returned(n)
+  real :: dummy_h(n)
+
+  dummy_d(:) = 123.456
+  dummy => dummy_d
+  call get_texture<<<nb, bs>>> (dummy_returned)
+  dummy_h = dummy_returned  ! D2H
+  print*, dummy_h(1)
+
   bytes   = sizeof(ones_d(1)) * n
   zeros_d = 0.0
   ones_d  = 0.0
   tex => zeros_d
-
-  call increment_tex<<<nb, bs, bytes>>> (ones_d)
-!  call increment<<<nb, bs>>>(zeros_d)
+  call increment_tex<<<nb, bs>>> (ones_d)
   ierr = cudaThreadSynchronize()
   if (ierr /= cudaSuccess) then
      print*, 'Error: kernel launch of cudaThreadSynchronize() failed; ierr=', ierr

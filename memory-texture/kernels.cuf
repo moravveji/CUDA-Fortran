@@ -2,17 +2,18 @@
 module kernels
 
   implicit none
-  real, pointer, texture :: tex(:) => null()  
+  real, pointer, texture :: tex(:) ! => null()  
+  real, pointer, texture :: dummy(:) ! => null()
 
   contains
 
   attributes(global) subroutine increment_tex(u)
-    real, intent(inout) :: u(:)
+    real :: u(:)
     integer :: i, n
     
     i = blockDim%x * (blockIdx%x - 1) + threadIdx%x
     n = size(u)
-    if (i <= n) u(i) = tex(i) + 1
+    if (i <= n) u(i) = tex(i) + 1.0
    
   end subroutine increment_tex
 
@@ -26,5 +27,12 @@ module kernels
     if (i <= n) u(i) = u(i) + 1.0
 
   end subroutine increment
+
+  attributes(global) subroutine get_texture(z)
+    real :: z(:)
+    integer :: i
+    i = blockDim%x * (blockIdx%x - 1) + threadIdx% x
+    z(i) = dummy(i)
+  end subroutine get_texture
 
 end module kernels

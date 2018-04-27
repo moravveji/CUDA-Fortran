@@ -26,3 +26,9 @@ This example was compiled with `PGI v.17.4` compiler and `CUDA 8.0` toolkit that
 The `do_access.exe` provided the following graphs on two Kepler devices, K20Xm and K40c.
 ![alt text](Tesla_K40c.png "K40c")
 ![alt text](Tesla_K20Xm.png "K20Xm")
+
+The following conclusions immediately follow:
++ The generic behaviour of all memory access patterns between both Kepler devices are identical; the K40c offers slightly higher bandwidth
++ For misaligned access with the global memory (solid blue line), the bandwidth is independent of the offset. However, if we employ the texture memory, the bandwith is at least 50% or even up to 700% higher.
++ For strided access, declaring the `intent` of the variables in Fortran forces the storage/transfer through global memory, whereas without the `intent` the compiler performs the transfer through texture memory. This is like a free lunch!
+

@@ -5,12 +5,6 @@ module kern_averages
 
   integer, parameter :: n = 2048
   real, dimension(:,:), pointer, texture :: tex
-
-  ! for the init subroutine
-  real, parameter :: pi = 4.0 * atan(1.0)
-  real, parameter :: a0 = 1.0
-  real, parameter :: lambda_x = 0.1, k_x = 2.0 * pi / lambda_x
-  real, parameter :: sig_y = 0.1, k_y = (2.0 * pi / sig_y)**2
  
   contains 
 
@@ -68,13 +62,13 @@ module kern_averages
     integer :: i
 
     i = blockDim%x * (blockIdx%x - 1) + threadIdx%x - 1 ! note the last "-1" 
-    if (i <= n+1) x(i) = i * (x1-x0) / n - x0
+    if (i <= n+1) x(i) = i * (x1-x0) / (n+1) + x0
 
   end subroutine init_1d
 
   attributes(global) subroutine init_2d(x, y, u)
-    real, intent(in) :: x(0:n+1), y(0:n+1)
-    real, intent(inout) :: u(0:n+1, 0:n+1)
+    real :: x(0:n+1), y(0:n+1)
+    real :: u(0:n+1, 0:n+1)
 
     integer :: i, j, nx, ny
  
@@ -86,8 +80,8 @@ module kern_averages
 !       stop 'Error: array dimensions of u does not match with x and/or y'
 
     if (i <= n+1) &
-    u(i, j) = a0 * sin(k_x * x(i)) * exp(-k_y * y(j)**2)
-    
+       u(i, j) = exp(-sin(x(i))) * cos(y(j))**2.0
+
   end subroutine init_2d
 
 end module kern_averages

@@ -13,6 +13,7 @@ program average
   real, dimension(n, n) :: avr_4pt, avr_8pt
   real, device, dimension(n, n)  :: avr_d
   real, dimension(n, n)  :: avr
+  real, dimension(0:n+1) :: x, y
   real, device, dimension(0:n+1) :: x_d, y_d
 !  real, dimension(0:n+1) :: x, y
   real, parameter :: x0=-1.0, x1=1.0, y0=-1, y1=1.0
@@ -22,6 +23,11 @@ program average
   
   ! for performance
   integer, parameter :: bs = 256, nb = n/bs ! block size and num blocks
+  type(dim3) :: grid_u = dim3(nb+1, nb+1, 1), &
+                block_u = dim3(bs, bs, 1), &
+                grid_avr = dim3(nb, nb, 1), &
+                block_avr = dim3(bs, bs, 1)
+
   type(cudaDeviceProp) :: prop
   character(len=32) :: dname
   type(cudaEvent) :: start, finish
@@ -36,14 +42,27 @@ program average
   ierr = cudaEventCreate(finish)
   
   ! initiate the values
-  u_d = 0.0
-  avr_d = 0.0
-  call init_1d<<<nb, bs>>> (x0, x1, x_d)
-  call init_1d<<<nb, bs>>> (y0, y1, y_d)
-  call init_2d<<<nb, bs>>> (x_d, y_d, u_d)
+  do k = 0, n+1 
+     x(k) = x0 + k * (x1-x0) / (n+1.0)
+     y(k) = y0 + k * (y1-y0) / (n+1.0)
+  enddo
+  do k = 0, n+1
+     do j = 0, n+1
+        u(j, k) = exp(-sin(x(j))) * cos(2.0 * y(k))**2.0
+     enddo
+  enddo
+  x_d = x
+  y_d = y
+  u_d = u
+!  call init_1d<<<nb, bs>>> (x0, x1, x_d)
+!  call init_1d<<<grid_u, block_u>>> (x0, x1, x_d)
+!  call init_1d<<<nb, bs>>> (y0, y1, y_d)
+!  call init_2d<<<nb, bs>>> (x_d, y_d, u_d)
 
   ! reference host matrices
-  u = u_d
+!  x = x_d
+!  y = y_d
+!  u = u_d
   do k = 1, n
      do j = 1, n
         avr_4pt(j, k) = (u(j-1, k) + u(j+1, k) + u(j, k-1) + u(j, k+1)) / 4.0
@@ -51,6 +70,9 @@ program average
                          u(j-1, k-1) + u(j-1, k+1) + u(j+1, k-1) + u(j+1, k+1) ) / 8.0
      enddo 
   enddo
+
+  print*, x(0), x(n-4:n+1)
+  print*, u(4,4), avr(4,4), avr_4pt(4,4), avr_8pt(4,4)
 
   ! which device?  
   ierr = cudaGetDeviceProperties(prop, 0)

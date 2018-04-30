@@ -1,0 +1,66 @@
+
+module kerns
+
+  implicit none
+
+  contains
+
+  attributes(global) subroutine copy_shared_mem(src, targ, nb)
+    real :: src(:), targ(:)
+    integer, value :: nb
+
+    real, shared :: temp(nb)
+    integer :: i, k, bs
+
+    i = threadIdx%x 
+    bs = size(src) / nb
+    do k = 0, nb - 1
+       temp(k + 1) = src(i + k * bs)
+    enddo 
+
+    do k = 0, nb - 1
+       targ(i + k * bs) = temp(k + 1)
+    enddo
+
+  end subroutine copy_shared_mem
+
+  attributes(global) subroutine copy_global_mem(src, targ, nb)
+    real :: src(:), targ(:)
+    integer, value :: nb
+
+    real :: temp(nb)
+    integer :: i, k, bs
+
+    i  = threadIdx%x
+!    nb = blockDim% x
+    bs = size(src) / nb
+    do k = 0, nb - 1
+       temp(k + 1) = src(i + k * bs) 
+    enddo
+
+    do k = 0, nb - 1
+       targ(i + k * bs) = temp(k + 1)
+    enddo
+
+  end subroutine copy_global_mem
+
+  attributes(global) subroutine copy_ilp(src, targ, ilp)
+    real :: src(:), targ(:)
+    integer, value :: ilp
+    real :: temp(ilp)
+    integer :: i, k
+
+    i = ilp * blockDim%x * (blockIdx%x - 1) + threadIdx%x
+    
+    do k = 1, ilp
+       temp(k) = src(i + (k-1) * blockDim%x)
+    enddo 
+
+    do k = 1, ilp
+       targ(i + (k-1) * blockDim%x) = temp(k) 
+    enddo
+  
+  end subroutine copy_ilp
+
+end module kerns
+

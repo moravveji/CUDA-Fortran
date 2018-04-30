@@ -13,6 +13,7 @@ program main_access
   integer, parameter :: nmax = 32
   integer, parameter :: block_size = 256, n_blocks = n / block_size
   real, device, allocatable, target :: a_d(:), b_d(:)
+
   integer :: k, ierr
   character(len=24), parameter :: fmt_screen="(i4, 2(1x, f9.4))", &
                                   fmt_hdr="(a4,2(1x, a9))", &

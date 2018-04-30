@@ -6,7 +6,7 @@ program main
 
   implicit none
 
-  integer, parameter :: MB = 4, KB = MB * 1024, B = KB * 1024, n = B / 4
+  integer, parameter :: MB = 6, KB = MB * 1024, B = KB * 1024, n = B / 4
   real, dimension(n), device :: src_d, targ_d
   real, dimension(n) :: src, targ
 

@@ -21,4 +21,6 @@ The reason is that the calling kernel has an explicit loop which jumps over the 
 ```
 
 ## Result
-The bandwidth of the copy operation from global to global memory is 1.59 GB/sec, but the same copy using an intermediate array declared in the share memory offers a bandwidth of 5.91 GB/sec on a Kepler K40c device.
+The bandwidth of the copy operation from global to global memory is 1.58 GB/sec, but the same copy using an intermediate array declared in the share memory offers a bandwidth of 6.15 GB/sec on a Kepler K40c device. Thus, the latter provides 4x higher BW for 6 MB data transfer.
+
+The `copy_ilp` follows the example in section 3.5.2 in the book: *CUDA Fortran for Scientists and Engineers* by Gregory Ruetsch. But, I am not 100% sure if line 33 in their code snippet is correct (`blockDim%x * ILP` seems exceeding the array bounds).

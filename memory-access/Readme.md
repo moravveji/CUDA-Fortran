@@ -4,9 +4,7 @@
 This basic example tries to measure the bandwidth (BW) of accessding *misaligned* and *strided* data through the *global* and *texture memory*. For details, one may refer to Section 3.2 in the book: [CUDA Fortran](https://www.elsevier.com/books/cuda-fortran-for-scientists-and-engineers/ruetsch/978-0-12-416970-8).
 
 ## Fortran `intent` Statement and BW
-Optionally, a decleration of function/subroutine arguments can be explicited with the `intent` statements (where the `intent` can be `in`, `out`, or `inout`). Though this is optional, in CUDA kernels, the BW gets quite affected by the `intent` statement. In more recent CUDA and PGI Fortran compilers, if an argument is declared read-only with the `intent(in)` declaration, then it will be transferred through the read-only texture cache (Gregory Ruetsch, private communication)! This is also tested here. Let me quote from him:
-
-*This being said, soon after the book came out improvements were made where you no longer have to bind textures this way to make use of the read-only cache.  Simply declaring an argument in the kernel code as `intent(in)` will result in the compiler utilizing the texture path.* 
+Optionally, a decleration of function/subroutine arguments can be explicited with the `intent` statements (where the `intent` can be `in`, `out`, or `inout`). Though this is optional, in CUDA kernels, the BW gets quite affected by the `intent` statement. In more recent CUDA and PGI Fortran compilers, if an argument is declared read-only with the `intent(in)` declaration, then it will be transferred through the read-only texture cache (Gregory Ruetsch, private communication)! This is also tested here. 
 
 ## Contents
 The following individual modules contain CUDA kernels which assess different features in memory access

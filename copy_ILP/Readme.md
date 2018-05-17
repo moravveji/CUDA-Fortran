@@ -6,11 +6,11 @@ This simple example shows how to copy an array (size is power of 2) between glob
 ## Why?
 Assume at a given phase of your application you need to copy many arrays simulataneously. One possibility is the following: You can stream your copying operations concurrently through many CUDA streams but assign each copy operation to the launch of a single kernel and all available threads within that single block. Explicitly, instead of 
 ```fortran
-call copy_shared_mem<<<Num_Blocks, Threads_per_Block>>> (source_d, target_d, 0)
+call copy_shared_mem<<<Num_Blocks, Threads_per_Block, byte_smem>>> (source_d, target_d, 0)
 ```
 you can launch your kernel accordingly:
 ```fortran
-call copy_shared_mem<<<1, Threads_per_Block>>> (source_d, target_d, Num_Blocks)
+call copy_shared_mem<<<1, Threads_per_Block, byte_smem>>> (source_d, target_d, Num_Blocks)
 ```
 The reason is that the calling kernel has an explicit loop which jumps over the whole source/target arrays and copies elements whose index are a multiple of the `Num_Blocks`. E.g.
 ```fortran
